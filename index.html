@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full bg-slate-50 text-slate-900 antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>온도주권 - 스마트 교실 맞춤 온도 제어 시스템</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans KR', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        cool: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        ideal: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                        warm: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #f8fafc;
+        }
+
+        .tap-action {
+            transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .tap-action:active {
+            transform: scale(0.96);
+        }
+
+        .clean-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.03), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 selection:bg-slate-200">
+
+    <!-- 상단 헤더 -->
+    <header class="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3.5">
+        <div class="max-w-5xl mx-auto flex items-center justify-between gap-4">
+            <!-- 로고 및 반 정보 -->
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center font-black text-lg text-white shadow-sm">
+                    온
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-extrabold tracking-tight text-slate-900 text-base sm:text-lg">온도주권</h1>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">3학년 2반</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 모드 전환 스위치 (학생 투표 / 전체 칠판) -->
+            <div class="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+                <button onclick="switchView('student')" id="btnViewStudent" class="tap-action px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm border border-slate-200/60">
+                    학생 투표
+                </button>
+                <button onclick="switchView('board')" id="btnViewBoard" class="tap-action px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800">
+                    전체 칠판
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+
+        <!-- ==================== 화면 1: 학생 연속 투표 모드 ==================== -->
+        <div id="studentView" class="flex-1 flex flex-col gap-6">
+
+            <!-- 1단계: 좌석 선택 화면 -->
+            <div id="stepSeatSelection" class="flex-1 clean-card rounded-3xl p-6 sm:p-8 flex flex-col justify-between">
+                <div>
+                    <!-- 상단 안내 -->
+                    <div class="flex flex-wrap justify-between items-end gap-3 mb-6 border-b border-slate-100 pb-5">
+                        <div>
+                            <span class="text-xs font-bold text-emerald-600 tracking-wide uppercase block mb-1">1단계: 자리 선택</span>
+                            <h2 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">본인이 앉은 책상을 눌러주세요</h2>
+                        </div>
+                        <div class="text-xs font-medium text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                            투표 현황 <span id="votedSeatCountText" class="font-bold text-slate-900">0</span> / 25명 완료
+                        </div>
+                    </div>
+
+                    <!-- 교실 레이아웃 안내 (칠판 위치) -->
+                    <div class="max-w-md mx-auto mb-5">
+                        <div class="w-full bg-slate-100 border border-slate-200/80 py-2 rounded-xl text-center text-xs font-bold text-slate-500 tracking-wider">
+                            칠판 / 선생님 교탁 방향
+                        </div>
+                    </div>
+
+                    <!-- 5x5 교실 책상 배치도 -->
+                    <div class="max-w-md mx-auto w-full">
+                        <!-- 구역 레이블 표시 (창가 / 중앙 / 복도) -->
+                        <div class="grid grid-cols-3 text-[11px] font-bold text-slate-400 text-center mb-2 px-1">
+                            <span>창가 구역</span>
+                            <span>중앙 구역</span>
+                            <span>복도 구역</span>
+                        </div>
+
+                        <div id="interactiveSeatGrid" class="grid grid-cols-5 gap-2.5 sm:gap-3">
+                            <!-- 자바스크립트로 25개 책상 생성 -->
+                        </div>
+
+                        <!-- 범례 안내 -->
+                        <div class="flex items-center justify-center gap-4 text-xs font-medium text-slate-500 mt-6 pt-4 border-t border-slate-100">
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-md bg-blue-500"></span> 추워요</span>
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-md bg-emerald-500"></span> 적당해요</span>
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-md bg-orange-500"></span> 더워요</span>
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-md bg-slate-100 border border-slate-200"></span> 미투표</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-4 border-t border-slate-100 text-center">
+                    <p class="text-xs text-slate-400 font-normal">책상을 누르고 체감 온도를 고르면 다음 학생이 투표하도록 즉시 다시 이 화면으로 이동합니다.</p>
+                </div>
+            </div>
+
+            <!-- 2단계: 선택한 좌석의 체감 온도 선택 화면 -->
+            <div id="stepVoteSelection" class="hidden flex-1 clean-card rounded-3xl p-6 sm:p-10 flex flex-col justify-between">
+                <div>
+                    <!-- 이전 돌아가기 버튼 -->
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-8">
+                        <button onclick="cancelVoteSelection()" class="tap-action px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-slate-200">
+                            자리 다시 고르기
+                        </button>
+                        <div class="bg-slate-900 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs">
+                            <span id="selectedSeatLabel">0번</span> 책상
+                        </div>
+                    </div>
+
+                    <div class="text-center my-2">
+                        <span class="text-xs font-bold text-emerald-600 tracking-wide uppercase block mb-1">2단계: 체감 선택</span>
+                        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">지금 자리가 어떻게 느껴지나요?</h2>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-1.5">하나를 누르면 투표가 즉시 완료되고 다음 학생 화면으로 넘어갑니다.</p>
+                    </div>
+
+                    <!-- 3가지 단정하고 직관적인 체감 온도 선택 버튼 -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 my-8 max-w-3xl mx-auto">
+                        <!-- 추워요 -->
+                        <button onclick="submitSeatVote('cold')" class="tap-action p-6 rounded-2xl border-2 border-slate-200 bg-white hover:border-blue-500 hover:bg-blue-50/50 text-left flex flex-col justify-between h-44 sm:h-52 group">
+                            <div class="px-3 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs w-max">
+                                낮음
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-blue-600 block mb-0.5">온도 올려주세요</span>
+                                <span class="text-xl font-bold text-slate-900 block">추워요</span>
+                                <span class="text-xs text-slate-500 mt-1 block">바람이 강하거나 쌀쌀함</span>
+                            </div>
+                        </button>
+
+                        <!-- 적당해요 -->
+                        <button onclick="submitSeatVote('ideal')" class="tap-action p-6 rounded-2xl border-2 border-slate-200 bg-white hover:border-emerald-500 hover:bg-emerald-50/50 text-left flex flex-col justify-between h-44 sm:h-52 group">
+                            <div class="px-3 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs w-max">
+                                적정
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-emerald-600 block mb-0.5">현재 상태 유지</span>
+                                <span class="text-xl font-bold text-slate-900 block">적당해요</span>
+                                <span class="text-xs text-slate-500 mt-1 block">공부하기 딱 좋은 온도</span>
+                            </div>
+                        </button>
+
+                        <!-- 더워요 -->
+                        <button onclick="submitSeatVote('warm')" class="tap-action p-6 rounded-2xl border-2 border-slate-200 bg-white hover:border-orange-500 hover:bg-orange-50/50 text-left flex flex-col justify-between h-44 sm:h-52 group">
+                            <div class="px-3 py-1 rounded-md bg-orange-50 border border-orange-200 text-orange-700 font-bold text-xs w-max">
+                                높음
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-orange-600 block mb-0.5">온도 내려주세요</span>
+                                <span class="text-xl font-bold text-slate-900 block">더워요</span>
+                                <span class="text-xs text-slate-500 mt-1 block">답답하거나 시원함이 필요함</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-center text-xs text-slate-400">
+                    투표 완료 후 즉시 다음 사용자를 위해 자리 선택 화면으로 복귀합니다.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ==================== 화면 2: 전체 칠판 현황판 (스마트 교탁 모드) ==================== -->
+        <div id="boardView" class="hidden flex-1 flex flex-col gap-6">
+            <div class="clean-card rounded-3xl p-6 sm:p-8 flex-1 flex flex-col justify-between gap-6">
+                
+                <!-- 상단 타이틀 및 타이머 -->
+                <div class="flex flex-wrap justify-between items-center border-b border-slate-100 pb-5 gap-4">
+                    <div>
+                        <span class="text-xs font-bold tracking-wide text-emerald-600 uppercase block mb-0.5">전자칠판 현황판</span>
+                        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">3학년 2반 맞춤 온도 현황</h2>
+                    </div>
+                    <div class="bg-slate-900 text-white px-5 py-2.5 rounded-2xl text-right">
+                        <span class="text-[11px] font-medium text-slate-400 block">쉬는시간 남은 시간</span>
+                        <span id="boardTimer" class="text-2xl sm:text-3xl font-black font-mono tracking-tight text-amber-300">04:12</span>
+                    </div>
+                </div>
+
+                <!-- 주요 측정 및 목표 요약 카드 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- 현재 측정 온도 -->
+                    <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200/80">
+                        <span class="text-xs font-bold text-slate-500 block mb-1">현재 교실 평균 온도</span>
+                        <div class="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight my-2">24.0<span class="text-2xl text-slate-400 font-bold">°C</span></div>
+                        <span class="text-xs text-slate-500">교실 내 종합 센서 측정 기준</span>
+                    </div>
+
+                    <!-- 투표 결과 분포 -->
+                    <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-slate-500 block mb-1">체감 투표 결과</span>
+                        <div class="flex items-center justify-between my-2 text-center">
+                            <div>
+                                <span class="text-xs text-blue-600 font-bold block">추워요</span>
+                                <span id="boardVoteCold" class="text-xl font-black text-slate-900">0명</span>
+                            </div>
+                            <div class="h-8 w-px bg-slate-200"></div>
+                            <div>
+                                <span class="text-xs text-emerald-600 font-bold block">적당해요</span>
+                                <span id="boardVoteIdeal" class="text-xl font-black text-slate-900">0명</span>
+                            </div>
+                            <div class="h-8 w-px bg-slate-200"></div>
+                            <div>
+                                <span class="text-xs text-orange-600 font-bold block">더워요</span>
+                                <span id="boardVoteWarm" class="text-xl font-black text-slate-900">0명</span>
+                            </div>
+                        </div>
+                        <div id="boardProgressBar" class="w-full h-2 bg-slate-200 rounded-full overflow-hidden flex">
+                            <div id="barCold" class="bg-blue-500 h-full w-[0%] transition-all duration-300"></div>
+                            <div id="barIdeal" class="bg-emerald-500 h-full w-[100%] transition-all duration-300"></div>
+                            <div id="barWarm" class="bg-orange-500 h-full w-[0%] transition-all duration-300"></div>
+                        </div>
+                    </div>
+
+                    <!-- 다음 교시 목표 설정 -->
+                    <div class="p-6 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+                        <span class="text-xs font-bold text-emerald-700 block mb-1">다음 교시 조정 목표 온도</span>
+                        <div id="boardTargetTemp" class="text-4xl sm:text-5xl font-black text-emerald-900 tracking-tight my-2">24.0<span class="text-2xl text-emerald-600 font-bold">°C</span></div>
+                        <span id="boardActionText" class="text-xs font-bold text-emerald-800 bg-white/80 px-2.5 py-1 rounded-lg border border-emerald-200 inline-block">
+                            현재 적정 온도 유지 중
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 구역별 행동 가이드 -->
+                <div class="bg-slate-50 rounded-2xl p-5 border border-slate-200/80">
+                    <h3 class="text-xs font-bold text-slate-600 tracking-wide uppercase mb-3">교실 구역별 안내 및 권장 사항</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <!-- 창가 -->
+                        <div class="bg-white p-4 rounded-xl border border-slate-200">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-slate-900">창가 구역</span>
+                                <span id="zoneTempWindow" class="text-xs font-bold font-mono text-slate-600">24.5°C</span>
+                            </div>
+                            <p id="zoneGuideWindow" class="text-xs text-slate-500 leading-relaxed">
+                                햇볕 영향이 있습니다. 직사광선 시 블라인드를 내려주세요.
+                            </p>
+                        </div>
+
+                        <!-- 중앙 -->
+                        <div class="bg-white p-4 rounded-xl border border-slate-200">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-slate-900">중앙 구역</span>
+                                <span id="zoneTempCenter" class="text-xs font-bold font-mono text-slate-600">24.0°C</span>
+                            </div>
+                            <p id="zoneGuideCenter" class="text-xs text-slate-500 leading-relaxed">
+                                교실 평균 온도를 유지하며 가장 쾌적한 상태입니다.
+                            </p>
+                        </div>
+
+                        <!-- 복도 -->
+                        <div class="bg-white p-4 rounded-xl border border-slate-200">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-slate-900">복도 구역</span>
+                                <span id="zoneTempDoor" class="text-xs font-bold font-mono text-slate-600">23.5°C</span>
+                            </div>
+                            <p id="zoneGuideDoor" class="text-xs text-slate-500 leading-relaxed">
+                                복도 바람으로 다소 서늘할 수 있으니 얇은 겉옷을 챙기세요.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 하단 안내 -->
+                <div class="flex justify-between items-center pt-2 border-t border-slate-100 text-xs text-slate-500">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        다음 교시 시작 시 냉난방 시스템에 자동 반영됩니다.
+                    </span>
+                    <button onclick="switchView('student')" class="tap-action font-bold text-slate-800 hover:text-slate-900 underline">
+                        학생 투표로 돌아가기
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 안내 토스트 알림 -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-xs font-bold hidden transition-all duration-200 z-50">
+        투표가 저장되었습니다.
+    </div>
+
+    <script>
+        // 애플리케이션 상태
+        const state = {
+            currentView: 'student',
+            activeSelectingSeatId: null,
+            currentTemp: 24.0,
+            seats: Array.from({ length: 25 }, (_, i) => ({
+                id: i + 1,
+                vote: null
+            })),
+            timerSeconds: 300
+        };
+
+        // 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            renderSeats();
+            updateCalculations();
+            startTimer();
+        });
+
+        // 모드 전환 (학생 투표 ↔ 전체 칠판)
+        function switchView(viewName) {
+            state.currentView = viewName;
+            const studentEl = document.getElementById('studentView');
+            const boardEl = document.getElementById('boardView');
+            const btnStudent = document.getElementById('btnViewStudent');
+            const btnBoard = document.getElementById('btnViewBoard');
+
+            if (viewName === 'board') {
+                studentEl.classList.add('hidden');
+                boardEl.classList.remove('hidden');
+                btnBoard.className = "tap-action px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm border border-slate-200/60";
+                btnStudent.className = "tap-action px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800";
+            } else {
+                boardEl.classList.add('hidden');
+                studentEl.classList.remove('hidden');
+                btnStudent.className = "tap-action px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm border border-slate-200/60";
+                btnBoard.className = "tap-action px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800";
+            }
+        }
+
+        // 5x5 교실 좌석 렌더링
+        function renderSeats() {
+            const grid = document.getElementById('interactiveSeatGrid');
+            grid.innerHTML = '';
+
+            state.seats.forEach(seat => {
+                const btn = document.createElement('button');
+                btn.className = `tap-action aspect-square rounded-2xl border flex flex-col items-center justify-center p-1 font-bold text-xs transition relative ${getSeatStyle(seat.vote)}`;
+
+                btn.onclick = () => openVoteForSeat(seat.id);
+                btn.innerHTML = `
+                    <span class="text-[10px] opacity-70">${seat.id}</span>
+                    <span class="text-[11px] font-extrabold mt-0.5">${getSeatLabel(seat.vote)}</span>
+                `;
+                grid.appendChild(btn);
+            });
+
+            const votedCount = state.seats.filter(s => s.vote !== null).length;
+            document.getElementById('votedSeatCountText').innerText = votedCount;
+        }
+
+        // 좌석 스타일 반환 (깔끔한 플랫 디자인)
+        function getSeatStyle(vote) {
+            switch(vote) {
+                case 'cold': return 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm';
+                case 'ideal': return 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm';
+                case 'warm': return 'bg-orange-50 border-orange-300 text-orange-700 shadow-sm';
+                default: return 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50';
+            }
+        }
+
+        // 좌석 상태 라벨 (이모지 대체)
+        function getSeatLabel(vote) {
+            switch(vote) {
+                case 'cold': return '추움';
+                case 'ideal': return '적정';
+                case 'warm': return '더움';
+                default: return '';
+            }
+        }
+
+        // 1단계: 좌석 눌렀을 때 투표 화면으로 이동
+        function openVoteForSeat(seatId) {
+            state.activeSelectingSeatId = seatId;
+            document.getElementById('selectedSeatLabel').innerText = `${seatId}번`;
+
+            document.getElementById('stepSeatSelection').classList.add('hidden');
+            document.getElementById('stepVoteSelection').classList.remove('hidden');
+        }
+
+        // 자리 고르기 취소
+        function cancelVoteSelection() {
+            state.activeSelectingSeatId = null;
+            document.getElementById('stepVoteSelection').classList.add('hidden');
+            document.getElementById('stepSeatSelection').classList.remove('hidden');
+        }
+
+        // 2단계: 투표 완료 후 자동 자리 선택 화면으로 복귀
+        function submitSeatVote(voteType) {
+            if (!state.activeSelectingSeatId) return;
+
+            const targetSeat = state.seats.find(s => s.id === state.activeSelectingSeatId);
+            if (targetSeat) {
+                targetSeat.vote = voteType;
+            }
+
+            const labelMap = { cold: '추워요', ideal: '적당해요', warm: '더워요' };
+            showToast(`${state.activeSelectingSeatId}번 자리가 '${labelMap[voteType]}'로 투표되었습니다.`);
+
+            updateCalculations();
+
+            // 즉시 상태 리셋 후 좌석 화면 복귀
+            state.activeSelectingSeatId = null;
+            renderSeats();
+            document.getElementById('stepVoteSelection').classList.add('hidden');
+            document.getElementById('stepSeatSelection').classList.remove('hidden');
+        }
+
+        // 온도 집계 계산 알고리즘
+        function updateCalculations() {
+            const votes = state.seats.map(s => s.vote).filter(Boolean);
+            const total = votes.length;
+
+            const coldCount = votes.filter(v => v === 'cold').length;
+            const idealCount = votes.filter(v => v === 'ideal').length;
+            const warmCount = votes.filter(v => v === 'warm').length;
+
+            document.getElementById('boardVoteCold').innerText = `${coldCount}명`;
+            document.getElementById('boardVoteIdeal').innerText = `${idealCount}명`;
+            document.getElementById('boardVoteWarm').innerText = `${warmCount}명`;
+
+            if (total > 0) {
+                document.getElementById('barCold').style.width = `${(coldCount / total) * 100}%`;
+                document.getElementById('barIdeal').style.width = `${(idealCount / total) * 100}%`;
+                document.getElementById('barWarm').style.width = `${(warmCount / total) * 100}%`;
+            } else {
+                document.getElementById('barCold').style.width = '0%';
+                document.getElementById('barIdeal').style.width = '100%';
+                document.getElementById('barWarm').style.width = '0%';
+            }
+
+            // 온도 산출 알고리즘
+            let delta = (coldCount * 0.7) + (warmCount * -0.9);
+            let avgDelta = total > 0 ? (delta / total) : 0;
+            let targetTemp = Math.round((state.currentTemp + avgDelta) * 10) / 10;
+
+            document.getElementById('boardTargetTemp').innerHTML = `${targetTemp.toFixed(1)}<span class="text-2xl text-emerald-600 font-bold">°C</span>`;
+
+            const diff = targetTemp - state.currentTemp;
+            let actionText = "";
+            if (diff < -0.2) {
+                actionText = `냉방 강화 (${Math.abs(diff).toFixed(1)}°C 낮춤)`;
+            } else if (diff > 0.2) {
+                actionText = `온도 상향 (${diff.toFixed(1)}°C 올림)`;
+            } else {
+                actionText = `현재 적정 온도 (${state.currentTemp}°C) 유지`;
+            }
+
+            document.getElementById('boardActionText').innerText = actionText;
+
+            // 구역별 보정
+            document.getElementById('zoneTempWindow').innerText = `${(targetTemp + 0.6).toFixed(1)}°C`;
+            document.getElementById('zoneTempCenter').innerText = `${targetTemp.toFixed(1)}°C`;
+            document.getElementById('zoneTempDoor').innerText = `${(targetTemp - 0.4).toFixed(1)}°C`;
+        }
+
+        // 카운트다운 타이머
+        function startTimer() {
+            setInterval(() => {
+                if (state.timerSeconds > 0) {
+                    state.timerSeconds--;
+                    const m = String(Math.floor(state.timerSeconds / 60)).padStart(2, '0');
+                    const s = String(state.timerSeconds % 60).padStart(2, '0');
+                    document.getElementById('boardTimer').innerText = `${m}:${s}`;
+                }
+            }, 1000);
+        }
+
+        // 토스트 메시지
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 1800);
+        }
+    </script>
+</body>
+</html>
